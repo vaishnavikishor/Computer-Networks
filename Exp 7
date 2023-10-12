@@ -1,0 +1,129 @@
+// Server.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    int serverSocket, clientSocket;
+    struct sockaddr_in serverAddr, clientAddr;
+    socklen_t addrLen = sizeof(clientAddr);
+    char buffer[1024];
+
+    // Create socket
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Configure server address
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(12345); // Choose a suitable port
+
+    // Bind
+    if (bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
+        perror("Binding failed");
+        close(serverSocket);
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen
+    if (listen(serverSocket, 5) == -1) {
+        perror("Listening failed");
+        close(serverSocket);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Server listening...\n");
+
+    // Accept connection
+    clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddr, &addrLen);
+    if (clientSocket == -1) {
+        perror("Acceptance failed");
+        close(serverSocket);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Client connected\n");
+
+    while (1) {
+        // Receive data from client
+        memset(buffer, 0, sizeof(buffer));
+        if (recv(clientSocket, buffer, sizeof(buffer), 0) <= 0) {
+            perror("Receive failed");
+            break;
+        }
+        printf("Client: %s", buffer);
+
+        // Send data to client
+        printf("Server: ");
+        fgets(buffer, sizeof(buffer), stdin);
+        send(clientSocket, buffer, strlen(buffer), 0);
+    }
+
+    // Close sockets
+    close(clientSocket);
+    close(serverSocket);
+
+    return 0;
+}
+
+Client
+// Client.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    int clientSocket;
+    struct sockaddr_in serverAddr;
+    char buffer[1024];
+
+    // Create socket
+    clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket == -1) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Configure server address
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Server IP address
+    serverAddr.sin_port = htons(12345); // Server port
+
+    // Connect
+    if (connect(clientSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
+        perror("Connection failed");
+        close(clientSocket);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Connected to server\n");
+
+    while (1) {
+        // Send data to server
+        printf("Client: ");
+        fgets(buffer, sizeof(buffer), stdin);
+        send(clientSocket, buffer, strlen(buffer), 0);
+
+        // Receive data from server
+        memset(buffer, 0, sizeof(buffer));
+        if (recv(clientSocket, buffer, sizeof(buffer), 0) <= 0) {
+            perror("Receive failed");
+            break;
+        }
+        printf("Server: %s", buffer);
+    }
+
+    // Close socket
+    close(clientSocket);
+
+    return 0;
+}
